@@ -96,8 +96,7 @@ public class ViewExcel extends Activity {
         if (filenameString.endsWith(".xlsx")) {
             try {
                 makeDirOrFile();
-                //readXLSX();
-                //readXlsx();
+                readXLSX();
             } catch (Exception e) {
                 System.out.println(LOG_TAG + "viewExcel");
             }
@@ -239,7 +238,7 @@ public class ViewExcel extends Activity {
                                     } else {
                                         lsb.append(" width=\"" + widthList[cellNum] + "\" ");//非第一行
                                     }
-                                    lsb.append(">" + "</td>");
+                                    lsb.append(">" +"<br></br>"+ "</td>");
                                 }
 
 //                              boolean flag = false;

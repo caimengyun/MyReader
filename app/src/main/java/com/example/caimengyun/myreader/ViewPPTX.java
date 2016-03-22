@@ -1,29 +1,23 @@
 package com.example.caimengyun.myreader;
 
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Xml;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import org.apache.poi.hslf.HSLFSlideShow;
 import org.apache.poi.hslf.model.Slide;
 import org.apache.poi.hslf.model.TextRun;
 import org.apache.poi.hslf.usermodel.PictureData;
-import org.apache.poi.hslf.usermodel.RichTextRun;
 import org.apache.poi.hslf.usermodel.SlideShow;
 import org.apache.poi.hwpf.usermodel.Picture;
-import org.apache.poi.ss.usermodel.Color;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,13 +27,12 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
+
 /**
  * Created by caimengyun on 16-3-10.
  */
 public class ViewPPTX extends Activity {
 
-    //private TextView testView;
-    //private ImageView imageView;
     private String LOG_TAG = "ViewPPTX_";
     private String filenameString;
     private String savePath;
@@ -57,25 +50,29 @@ public class ViewPPTX extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_viewword);
-        //imageView = (ImageView) findViewById(R.id.viewpptxImg);
-        //testView = (TextView) findViewById(R.id.viewpptx);
-        //testView.setText(readPPTX());
         Bundle bundle = this.getIntent().getExtras();
         filenameString = bundle.getString("filePath");
+
         view();
         Toast.makeText(this, htmlPath, Toast.LENGTH_LONG).show();
         webView = (WebView) this.findViewById(R.id.viewWord);
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
+        webSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+        //webView.setInitialScale(50);
+        webSettings.setSupportZoom(true);
+        webSettings.setBuiltInZoomControls(true);
         webView.loadUrl("file://" + htmlPath);
     }
 
     private void view() {
-        if (filenameString.endsWith(".PPT")) {
+        if (filenameString.endsWith(".ppt")) {
             makeDirOrFile();
             readPpt();
+            //read();
         } else {
-            //readPptx();
+            makeDirOrFile();
+            readPptx();
         }
     }
 
@@ -112,165 +109,141 @@ public class ViewPPTX extends Activity {
         try {
             File file = new File(htmlPath);
             fileOutput = new FileOutputStream(file);
-            FileInputStream is = new FileInputStream(filenameString);
-            SlideShow ppt = new SlideShow(is);
-            is.close();
-            Dimension pgsize = ppt.getPageSize();
-            org.apache.poi.hslf.model.Slide[] slide = ppt.getSlides();
-            for (int i = 0; i < slide.length; i++) {
-                System.out.print("第" + i + "页。");
+            lsb.append("<html xmlns:o=\'urn:schemas-microsoft-com:office:office\' xmlns:x=\'urn:schemas-microsoft-com:office:excel\' xmlns=\'http://www.w3.org/TR/REC-html40\'>");
+            lsb.append("<head><meta http-equiv=Content-Type content=\'text/html; charset=utf-8\'><meta name=ProgId content=Excel.Sheet>");
 
-                TextRun[] truns = slide[i].getTextRuns();
-                for (int k = 0; k < truns.length; k++) {
-                    RichTextRun[] rtruns = truns[k].getRichTextRuns();
-                    for (int l = 0; l < rtruns.length; l++) {
-                        int index = rtruns[l].getFontIndex();
-                        String name = rtruns[l].getFontName();
-                        rtruns[l].setFontIndex(1);
-                        rtruns[l].setFontName("宋体");
+            FileInputStream fileInputStream = new FileInputStream(filenameString);
+            SlideShow ppt = new SlideShow(new HSLFSlideShow(fileInputStream));
+            PictureData[] pictures = ppt.getPictureData();
+            Slide[] slides = ppt.getSlides();//提取文本信息
+
+            for (int k = 0; k < slides.length; k++) {//遍历每一张ppt
+                lsb.append("<table>");//
+                lsb.append("<tr height=\"25\">");
+                lsb.append("<td style=\"font-weight:400;font-size:160%;\"align=\"center\"valign=\"bottom\"colspan=\"10\" rowspan=\"0\">");
+                lsb.append("第" + k + "张PPT：");
+                lsb.append(slides[k].getTitle());
+                lsb.append("</tb></tr></table>");
+                TextRun textRun[] = slides[k].getTextRuns();
+                lsb.append("<table style=\"border: #333333; border-style: solid; border-top-width: 2px;border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px\">");
+                for (int i = 0; i < textRun.length; i++) {
+                    lsb.append("<tr height=\"25\">");
+                    lsb.append("<td style=\"font-weight:400;font-size:160%;\"align=\"center\"valign=\"bottom\"colspan=\"10\" rowspan=\"0\">");
+                    String text = textRun[i].getText();
+                    if (text == null) {
+                        lsb.append("<br>" + "null" + "</br>");
+                    } else {
+                        lsb.append(text);
+                    }
+                    lsb.append("</tb></tr>");
+                    if (numPicture < pictures.length) {
+                        lsb.append("<tr height=\"25\">");
+                        lsb.append("<td>");
+                        makePicFile();
+                        File pic_file = new File(picturePath);
+                        PictureData pic_data = pictures[numPicture];
+                        FileOutputStream outputPicture = new FileOutputStream(pic_file);
+                        outputPicture.write(pic_data.getData());
+                        outputPicture.close();
+                        String imageString = "<img src=\"" + pic_file.getAbsolutePath() + "\"style=\"width:200px;height:200px;>";
+                        lsb.append(imageString + "</tb></tr>");
+                        numPicture++;
                     }
                 }
-                BufferedImage img = new BufferedImage(pgsize.width,
-                        pgsize.height, BufferedImage.TYPE_INT_RGB);
-
-                Graphics2D graphics = img.createGraphics();
-                graphics.setPaint(Color.BLUE);
-                graphics.fill(new Rectangle2D.Float(0, 0, pgsize.width,
-                        pgsize.height));
-                slide[i].draw(graphics);
-
-// 这里设置图片的存放路径和图片的格式(jpeg,png,bmp等等),注意生成文件路径
-                File path = new File("F:/images");
-                if (!path.exists()) {
-                    path.mkdir();
-                }
-                FileOutputStream out = new FileOutputStream(path + "/pict_"
-                        + (i + 1) + ".jpeg");
-                javax.imageio.ImageIO.write(img, "jpeg", out);
-                out.close();
-
+                lsb.append("</table>");
             }
-            System.out.println("success!!");
-            return true;
-        } catch (FileNotFoundException e) {
-            System.out.println(e);
-// System.out.println("Can't find the image!");
-        } catch (IOException e) {
-        }
-
-
-        try {
-            HSLFSlideShow hslfSlideShow = new HSLFSlideShow(filenameString);
-            SlideShow slideShow = new SlideShow(hslfSlideShow);
-            // 获取PPT文件中的图片数据
-            PictureData[] pictures = slideShow.getPictureData();
-            // 循环读取图片数据
-            for (int i = 0; i < pictures.length; i++) {
-                PictureData pic_data = pictures[i];
-                // 设置格式
-                switch (pic_data.getType()) {
-                    case Picture.JPEG:
-                        lsb.append(".jpg");
-                        break;
-                    case Picture.PNG:
-                        lsb.append(".png");
-                        break;
-                    default:
-                        fileName.append(".data");
-                }
-                // 输出文件
-                fileOutput.write(pic_data.getData());
-                fileOutput.close();
-            }
+            fileOutput.write(lsb.toString().getBytes());
         } catch (Exception e) {
-            System.out.println(LOG_TAG + "readPpt");
+            System.out.println(LOG_TAG + "read");
         }
     }
 
+    /**
+     * @return
+     */
+    private void readPptx() {
+        List<String> list = new ArrayList<String>();
+        ZipFile xlsxFile = null;
+        try {
+            File file = new File(htmlPath);
+            fileOutput = new FileOutputStream(file);
+            lsb.append("<html xmlns:o=\'urn:schemas-microsoft-com:office:office\' xmlns:x=\'urn:schemas-microsoft-com:office:excel\' xmlns=\'http://www.w3.org/TR/REC-html40\'>");
+            lsb.append("<head><meta http-equiv=Content-Type content=\'text/html; charset=utf-8\'><meta name=ProgId content=Excel.Sheet>");
 
-//    /**
-//     * @return
-//     */
-//    public String readPptx() {
-//        List<String> list = new ArrayList<String>();
-//        String river = "";
-//        ZipFile xlsxFile = null;
-//        try {
-//            xlsxFile = new ZipFile(new File(filenameString));
-//        } catch (ZipException e1) {
-//            e1.printStackTrace();
-//        } catch (IOException e1) {
-//            e1.printStackTrace();
-//        }
-//        try {
-//            ZipEntry sharedStringXML = xlsxFile.getEntry("[Content_Types].xml");
-//            InputStream inputStream = xlsxFile.getInputStream(sharedStringXML);
-//            XmlPullParser xmlParser = Xml.newPullParser();
-//            xmlParser.setInput(inputStream, "utf-8");
-//            int evtType = xmlParser.getEventType();
-//            while (evtType != XmlPullParser.END_DOCUMENT) {
-//                switch (evtType) {
-//                    case XmlPullParser.START_TAG:
-//                        String tag = xmlParser.getName();
-//                        if (tag.equalsIgnoreCase("Override")) {
-//                            String s = xmlParser
-//                                    .getAttributeValue(null, "PartName");
-//                            if (s.lastIndexOf("/ppt/slides/slide") == 0) {
-//                                list.add(s);
-//                            }
-//                        }
-//                        break;
-//                    case XmlPullParser.END_TAG:
-//                        break;
-//                    default:
-//                        break;
-//                }
-//                evtType = xmlParser.next();
-//            }
-//        } catch (ZipException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        } catch (XmlPullParserException e) {
-//            e.printStackTrace();
-//        }
-//        for (int i = 1; i < (list.size() + 1); i++) {
-//            river += "��" + i + "��:" + "\n";
-//            try {
-//                ZipEntry sharedStringXML = xlsxFile.getEntry("ppt/slides/slide" + i + ".xml");
-//                InputStream inputStream = xlsxFile.getInputStream(sharedStringXML);
-//                XmlPullParser xmlParser = Xml.newPullParser();
-//                xmlParser.setInput(inputStream, "utf-8");
-//                int evtType = xmlParser.getEventType();
-//                while (evtType != XmlPullParser.END_DOCUMENT) {
-//                    switch (evtType) {
-//                        case XmlPullParser.START_TAG:
-//                            String tag = xmlParser.getName();
-//                            if (tag.equalsIgnoreCase("t")) {
-//                                river += xmlParser.nextText() + "\n";
-//                            } else if (tag.equalsIgnoreCase("cNvPr")) {
-//
-//                                //  img.setImageResource();
-//                            }
-//                            break;
-//                        case XmlPullParser.END_TAG:
-//                            break;
-//                        default:
-//                            break;
-//                    }
-//                    evtType = xmlParser.next();
-//                }
-//            } catch (ZipException e) {
-//                e.printStackTrace();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            } catch (XmlPullParserException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        if (river == null) {
-//            river = "wrong";
-//        }
-//        return river;
-//    }
+            xlsxFile = new ZipFile(new File(filenameString));
+            ZipEntry sharedStringXML = xlsxFile.getEntry("[Content_Types].xml");
+            InputStream inputStream = xlsxFile.getInputStream(sharedStringXML);
+            XmlPullParser xmlParser = Xml.newPullParser();
+            xmlParser.setInput(inputStream, "utf-8");
+            int evtType = xmlParser.getEventType();
+            while (evtType != XmlPullParser.END_DOCUMENT) {
+                switch (evtType) {
+                    case XmlPullParser.START_TAG:
+                        String tag = xmlParser.getName();
+                        if (tag.equalsIgnoreCase("Override")) {
+                            String s = xmlParser.getAttributeValue(null, "PartName");
+                            if (s.lastIndexOf("/ppt/slides/slide") == 0) {
+                                list.add(s);
+                            }
+                        }
+                        break;
+                    case XmlPullParser.END_TAG:
+                        break;
+                    default:
+                        break;
+                }
+                evtType = xmlParser.next();
+            }
+        } catch (ZipException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (XmlPullParserException e) {
+            e.printStackTrace();
+        }
+        try {
+            for (int i = 1; i < (list.size() + 1); i++) {
+                lsb.append("<table>");//
+                lsb.append("<tr height=\"25\">");
+                lsb.append("<td style=\"font-weight:400;font-size:160%;\"align=\"center\"valign=\"bottom\"colspan=\"10\" rowspan=\"0\">");
+                lsb.append("第" + i + "张PPT：");
+                lsb.append("</tb></tr></table>");
+                lsb.append("<table style=\"border: #333333; border-style: solid; border-top-width: 2px;border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px\">");
+                ZipEntry sharedStringXML = xlsxFile.getEntry("ppt/slides/slide" + i + ".xml");
+                InputStream inputStream = xlsxFile.getInputStream(sharedStringXML);
+                XmlPullParser xmlParser = Xml.newPullParser();
+                xmlParser.setInput(inputStream, "utf-8");
+                int evtType = xmlParser.getEventType();
+                while (evtType != XmlPullParser.END_DOCUMENT) {
+                    switch (evtType) {
+                        case XmlPullParser.START_TAG:
+                            String tag = xmlParser.getName();
+                            lsb.append("<tr height=\"25\">");
+                            lsb.append("<td style=\"font-weight:400;font-size:160%;\"align=\"center\"valign=\"bottom\"colspan=\"10\" rowspan=\"0\">");
+                            if (tag.equalsIgnoreCase("t")) {
+                                lsb.append(xmlParser.nextText());
+                                lsb.append("</tb></tr>");
+                            } else if (tag.equalsIgnoreCase("cNvPr")) {
+                                //xmlParser.
+                            }
+                            break;
+                        case XmlPullParser.END_TAG:
+                            break;
+                        default:
+                            break;
+                    }
+                    evtType = xmlParser.next();
+                }
+                lsb.append("</table>");
+            }
+            fileOutput.write(lsb.toString().getBytes());
+        } catch (ZipException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (XmlPullParserException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
